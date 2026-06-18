@@ -57,7 +57,7 @@
           '';
         };
 
-        darwinModules.default =
+        darwinModules.recording-monitor =
           { config, lib, ... }:
           let
             cfg = config.services.recording-monitor;
