@@ -1,93 +1,107 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
   };
+
   outputs =
+    { self, nixpkgs }:
+    let
+      system = "aarch64-darwin";
+
+      pkgs = import nixpkgs { inherit system; };
+    in
     {
-      self,
-      nixpkgs,
-      flake-utils,
-    }:
-    flake-utils.lib.eachDefaultSystem (
-      system:
-      let
-        pkgs = import nixpkgs {
-          inherit system;
-        };
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            nodejs_22
-            direnv
-          ];
+      # ---------------------------
+      # PACKAGE
+      # ---------------------------
+      packages.${system}.default = pkgs.buildNpmPackage {
+        pname = "recording-monitor";
+        version = "1.0.0";
 
-          shellHook = ''
-            eval "$(direnv hook bash)"
-            direnv allow
-          '';
-        };
+        src = ./.;
 
-        packages.default = pkgs.buildNpmPackage {
-          pname = "recording-monitor";
-          version = "1.0.0";
+        npmDepsHash = "sha256-9BA8yQ22rM6Be13iu/FqPQQ8oGUbDBzp6VBrHOXhPNo=";
+        dontNpmBuild = true;
 
-          src = ./.;
+        installPhase = ''
+          runHook preInstall
 
-          npmDepsHash = "sha256-9BA8yQ22rM6Be13iu/FqPQQ8oGUbDBzp6VBrHOXhPNo=";
-          dontNpmBuild = true;
+          mkdir -p $out/bin
 
-          installPhase = ''
-            runHook preInstall
+          cat > $out/bin/recording-monitor <<EOF
+          #!${pkgs.bash}/bin/bash
+          exec ${pkgs.nodejs}/bin/node $out/app/src/index.js
+          EOF
 
-            mkdir -p $out/bin
+          chmod +x $out/bin/recording-monitor
 
-            cat > $out/bin/recording-monitor <<EOF
-            #!${pkgs.bash}/bin/bash
-            exec ${pkgs.nodejs}/bin/node $out/app/src/index.js
-            EOF
+          mkdir -p $out/app
+          cp -R src package.json node_modules $out/app
 
-            chmod +x $out/bin/recording-monitor
+          runHook postInstall
+        '';
+      };
 
-            mkdir -p $out/app
-            cp -R src package.json node_modules $out/app
+      # ---------------------------
+      # DARWIN MODULE
+      # ---------------------------
+      darwinModules.recording-monitor =
+        {
+          config,
+          lib,
+          pkgs,
+          ...
+        }:
+        let
+          cfg = config.services.recording-monitor;
+        in
+        {
+          options.services.recording-monitor = {
+            enable = lib.mkEnableOption "Recording Monitor";
 
-            runHook postInstall
-          '';
-        };
-
-        darwinModules.recording-monitor =
-          { config, lib, ... }:
-          let
-            cfg = config.services.recording-monitor;
-          in
-          {
-            options.services.recording-monitor = {
-              enable = lib.mkEnableOption "Recording Monitor";
-              configFile = lib.mkOption {
-                type = lib.types.str;
-                description = "Location of the configuration file";
-              };
+            configFile = lib.mkOption {
+              type = lib.types.str;
+              default = "";
+              description = "Path to config file";
             };
 
-            config = lib.mkIf cfg.enable {
-              launchd.user.agents.recording-monitor = {
-                serviceConfig = {
-                  ProgramArguments = [
-                    "${self.packages.${system}.default}/bin/recording-monitor"
-                  ];
+            package = lib.mkOption {
+              type = lib.types.package;
+              default = self.packages.${system}.default;
+              description = "Package to run";
+            };
+          };
 
-                  EnvironmentVariables = {
-                    CONFIG_FILE = cfg.configFile;
-                  };
+          config = lib.mkIf cfg.enable {
+            launchd.user.agents.recording-monitor = {
+              serviceConfig = {
+                ProgramArguments = [
+                  "${cfg.package}/bin/recording-monitor"
+                ];
 
-                  RunAtLoad = true;
-                  KeepAlive = true;
+                EnvironmentVariables = {
+                  CONFIG_FILE = cfg.configFile;
                 };
+
+                RunAtLoad = true;
+                KeepAlive = true;
               };
             };
           };
-      }
-    );
+        };
+
+      # ---------------------------
+      # DEV SHELL
+      # ---------------------------
+      devShells.${system}.default = pkgs.mkShell {
+        buildInputs = with pkgs; [
+          nodejs_22
+          direnv
+        ];
+
+        shellHook = ''
+          eval "$(direnv hook bash)"
+        '';
+      };
+    };
 }
