@@ -1,0 +1,13 @@
+adapter: "homeassistant"
+
+midi:
+  device_name: "some_device"
+
+homeassistant:
+  mode: scene
+  host: http://homeassistant.local:8123
+  token: token
+  scene:
+    on: scenes.recording_on
+    off: scenes.recording_off
+

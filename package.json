@@ -1,0 +1,16 @@
+{
+  "name": "midinode",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node src/index.js"
+  },
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "js-yaml": "^4.2.0",
+    "jzz": "^1.9.6"
+  }
+}
