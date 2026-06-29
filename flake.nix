@@ -80,7 +80,7 @@
                 ];
 
                 EnvironmentVariables = {
-                  CONFIG_FILE = cfg.configFile;
+                  RECORDING_MONITOR_CONFIG_FILE = cfg.configFile;
                 };
 
                 RunAtLoad = true;
